@@ -306,6 +306,17 @@ module.exports = async function (params, context) {
     let senderId = params.event.sender.sender_id.user_id;
     let sessionId = chatId + senderId;
 
+    // 查询今天 event 的次数，如果超过 300 次，则直接返回失败
+    const from = new Date();
+    const to = new Date(from.getTime() - (24 * 60 * 60 * 1000));
+    const countToday = await EventDB.table.countDocuments({ createdAt: { $gt: to, $lte: from } });
+    logger("countToday:" + countToday + ", from:" + from.toISOString() + ", to:" + to.toISOString());
+    if (countToday >= 300) {
+      await reply(messageId, "今日限额已用完，请明天赶早");
+      logger("exceed max event count today");
+      return { code: 1 };
+    }
+
     // 对于同一个事件，只处理一次
     const count = await EventDB.where({ event_id: eventId }).count();
     if (count != 0) {
